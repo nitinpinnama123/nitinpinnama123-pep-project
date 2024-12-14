@@ -27,15 +27,11 @@ import io.javalin.http.Handler;
  * refer to prior mini-project labs and lecture materials for guidance on how a controller may be built.
  */
 public class SocialMediaController {
-    private final AccountService accountService;
-    private final MessageService messageService;
+   
     private List<Account> accounts = new ArrayList<>();
 
-    public SocialMediaController(AccountService accountService, MessageService messageService) {
+    public SocialMediaController() {
 
-        this.accountService = accountService;
-
-        this.messageService = messageService;
 
     }
     Random rand = new Random();
@@ -137,12 +133,12 @@ public class SocialMediaController {
      */
     public Javalin startAPI() {
         Javalin app = Javalin.create();
-        app.post("localhost:8080/register", new SocialMediaController(accountService, messageService).registerUser);
-        app.post("localhost:8080/login", new SocialMediaController(accountService, messageService).loginUser);
-        app.post("localhost:8080/messages", new SocialMediaController(accountService, messageService).createMessage);
-        app.post("localhost:8080/messages", new SocialMediaController(accountService, messageService).getAllMessages);
-        app.post("localhost:8080/messages", new SocialMediaController(accountService, messageService).getMessageById);
-        app.post("localhost:8080/messages", new SocialMediaController(accountService, messageService).deleteMessage);
+        app.post("localhost:8080/register", new SocialMediaController().registerUser);
+        app.post("localhost:8080/login", new SocialMediaController().loginUser);
+        app.post("localhost:8080/messages", new SocialMediaController().createMessage);
+        app.post("localhost:8080/messages", new SocialMediaController().getAllMessages);
+        app.post("localhost:8080/messages", new SocialMediaController().getMessageById);
+        app.post("localhost:8080/messages", new SocialMediaController().deleteMessage);
         return app;
     }
 
