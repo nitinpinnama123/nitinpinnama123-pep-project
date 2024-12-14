@@ -14,8 +14,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.h2.util.json.JSONObject;
 
 import Model.Account;
-import Service.AccountService;
-import Service.MessageService;
 import io.javalin.Javalin;
 import io.javalin.http.Context;
 import io.javalin.http.Handler;

@@ -1,5 +1,4 @@
 import Controller.SocialMediaController;
-import Service.AccountService;
 import io.javalin.Javalin;
 
 /**
