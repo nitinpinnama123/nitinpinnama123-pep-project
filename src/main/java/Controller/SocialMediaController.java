@@ -11,9 +11,12 @@ import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import org.h2.util.json.JSONArray;
+
 import org.h2.util.json.JSONObject;
 
 import Model.Account;
+import Model.Message;
 import io.javalin.Javalin;
 import io.javalin.http.Context;
 import io.javalin.http.Handler;
@@ -27,6 +30,8 @@ import io.javalin.http.Handler;
 public class SocialMediaController {
    
     private List<Account> accounts = new ArrayList<>();
+
+    private List<Message> messages = new ArrayList<>();
 
     public SocialMediaController() {
 
@@ -58,6 +63,7 @@ public class SocialMediaController {
         int accountId = rand.nextInt(1000);
 
         newAccount.setAccount_id(accountId);
+    
 
         accounts.add(newAccount);
 
@@ -94,20 +100,117 @@ public class SocialMediaController {
     
 
     };
-
+// The creation of the message will be successful if and only if the message_text is not blank, is not over 255 characters, and posted_by refers to a real, existing user.
     public Handler createMessage = ctx -> {
+        String request = ctx.body();
+        Message newMessage = parseMessageFromJson(request);
+        Account account = parseAccountFromJson(request);
+        if (newMessage.getMessage_text() == null)
+        {
+            ctx.status(400).result("Message text cannot be blank");
+            return;
+        }
+        if (newMessage.getMessage_text().length() > 255)
+        {
+            ctx.status(400).result("Message text cannot be over 255 characters");
+            return;
+        }
+
+        if (newMessage.getPosted_by() != account.getAccount_id())
+        {
+            ctx.status(400).result("Not a real user");
+            return;
+        }
+
+        ctx.status(200).result("Message successful");
+        ctx.json(newMessage);
+
+        messages.add(newMessage);
+    
+    
+
+
 
     };
 
     public Handler getAllMessages = ctx -> {
+        String request = ctx.body();
+        
+        ctx.status(200).result("Message received");
+        for (Message m : messages)
+        {
+            ctx.json(m);
+        }
+
+        
 
     };
 
     public Handler getMessageById = ctx -> {
 
+        String request = ctx.body();
+        Message parsedRequest = parseMessageFromJson(request);
+        ctx.status(200).result("Message received");
+        for (Message m : messages)
+        {
+            m = parseMessageFromJson(request);
+            if (m.getMessage_id() == parsedRequest.getMessage_id())
+            {
+                ctx.json(m);
+            }
+
+        }
+
+
     };
 
-    public Handler deleteMessage = ctx -> {
+    public Handler deleteMessageById = ctx -> {
+        String request = ctx.body();
+        Message parsedRequest = parseMessageFromJson(request);
+        ctx.status(200).result("Message deleted");
+        for (Message m : messages)
+        {
+            m = parseMessageFromJson(request);
+            if (m.message_id == parsedRequest.message_id)
+            {
+                ctx.json(m);
+            }
+            else {
+                // Response body is empty
+            }
+        }
+
+    };
+
+    public Handler updateMessageTextById = ctx -> {
+        String request = ctx.body();
+        Message parsedRequest = parseMessageFromJson(request);
+
+        for (Message m : messages)
+        {
+            m = parseMessageFromJson(request);
+            if (m.getMessage_id() == parsedRequest.getMessage_id())
+            {
+                if (parsedRequest.getMessage_text() == null || parsedRequest.getMessage_text().length() > 255)
+                {
+                    ctx.status(400).result("Message text cannot be blank");
+                    return;
+                }
+                else {
+                    m.setMessage_text(parsedRequest.getMessage_text());
+                    ctx.status(200).result("Message text successfully updated");
+                    ctx.json(m);
+                }
+            }
+
+        }
+
+
+
+
+    };
+
+    public Handler getAllMessagesByUser = ctx -> {
 
     };
 
@@ -118,6 +221,15 @@ public class SocialMediaController {
         JsonNode node = mapper.readTree(json);
         Account a = new Account(node.get("account_id").asInt(), node.get("username").asText(), node.get("password").asText());
         return a;
+    }
+
+    private Message parseMessageFromJson (String json) throws JsonMappingException, JsonProcessingException 
+    {
+        ObjectMapper mapper = new ObjectMapper();
+        JsonNode node = mapper.readTree(json);
+
+        Message m = new Message(node.get("posted_by").asInt(), node.get("message_text").asText(), node.get("time_posted_epoch").asLong());
+        return m;
     }
 
     
@@ -134,9 +246,11 @@ public class SocialMediaController {
         app.post("localhost:8080/register", new SocialMediaController().registerUser);
         app.post("localhost:8080/login", new SocialMediaController().loginUser);
         app.post("localhost:8080/messages", new SocialMediaController().createMessage);
-        app.post("localhost:8080/messages", new SocialMediaController().getAllMessages);
-        app.post("localhost:8080/messages", new SocialMediaController().getMessageById);
-        app.post("localhost:8080/messages", new SocialMediaController().deleteMessage);
+        app.get("localhost:8080/messages", new SocialMediaController().getAllMessages);
+        app.get("localhost:8080/messages/{message_id}", new SocialMediaController().getMessageById);
+        app.delete("localhost:8080/messages/{message_id}", new SocialMediaController().deleteMessageById);
+        app.patch("localhost:8080/messages/{message_id}", new SocialMediaController().updateMessageTextById);
+        app.get("localhost:8080/accounts/{account_id}", new SocialMediaController().getAllMessagesByUser);
         return app;
     }
 
