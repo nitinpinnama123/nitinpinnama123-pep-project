@@ -211,6 +211,22 @@ public class SocialMediaController {
     };
 
     public Handler getAllMessagesByUser = ctx -> {
+        List<Message> messagesByUser = new ArrayList<Message>();
+        String request = ctx.body();
+        Account parsedRequestAccount = parseAccountFromJson(request);
+
+        ctx.status(200).result("Messages by user received");
+        for (Message m : messages)
+        {
+            m = parseMessageFromJson(request);
+            if (m.getPosted_by() == parsedRequestAccount.getAccount_id())
+            {
+                messagesByUser.add(m);
+            }
+        }
+        ctx.json(messagesByUser);
+
+
 
     };
 
