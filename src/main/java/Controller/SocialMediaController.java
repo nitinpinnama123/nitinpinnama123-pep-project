@@ -214,7 +214,6 @@ public class SocialMediaController {
         List<Message> messagesByUser = new ArrayList<Message>();
         String request = ctx.body();
         Account parsedRequestAccount = parseAccountFromJson(request);
-
         ctx.status(200).result("Messages by user received");
         for (Message m : messages)
         {
