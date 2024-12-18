@@ -3,6 +3,8 @@ import static org.mockito.ArgumentMatchers.nullable;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.Random;
 import java.io.*;
 import com.fasterxml.jackson.core.JsonParser;
@@ -10,6 +12,9 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+
+import DAO.AccountDAO;
+import DAO.MessageDAO;
 
 import org.h2.util.json.JSONArray;
 
@@ -39,65 +44,27 @@ public class SocialMediaController {
     }
     Random rand = new Random();
     public Handler registerUser = ctx -> {
-        String request = ctx.body();
-      
-        Account newAccount = parseAccountFromJson(request);
-
-        if (newAccount.getUsername() == null || newAccount.getUsername().trim().isEmpty())
+        String username = Objects.requireNonNull(ctx.pathParam("username"));
+        String password = Objects.requireNonNull(ctx.pathParam("password"));
+        AccountDAO accountDAO = AccountDAO.instance();
+        Account acc = accountDAO.registerUser(username, password);
+        
+        if (acc.username != null && acc.password.length() >= 4)
         {
-            ctx.status(400).result("Username cannot be blank");
-            return;
+            ctx.json(acc.username);
+            ctx.json(acc.password);
+            ctx.status(200).result("Username and password valid");
         }
-
-        if (newAccount.getPassword().length() < 4)
-        {
-            ctx.status(400).result("Password has to be at least 4 characters in length");
-            return;
+        else {
+            ctx.status(400).result("Username or password invalid");
         }
-
-        if ((newAccount.getUsername()) != null) {
-            ctx.status(400).result("Account with this username already exists");
-            return;
-        }
-
-        int accountId = rand.nextInt(1000);
-
-        newAccount.setAccount_id(accountId);
-    
-
-        accounts.add(newAccount);
-
-        ctx.json(newAccount);
     };
 
     public Handler loginUser = ctx -> {
-    
-        String request = ctx.body();
-        
+        AccountDAO accountDAO = AccountDAO.instance();
+        accountDAO.loginUser(accountDAO);
 
-        Account a = parseAccountFromJson(request);
-
-        if (a != null) {
-            for (Account b : accounts)
-            {
-                if (b.getUsername().equals(a.getUsername()))
-                {
-                    ctx.status(200).result("Successful login");
-                    break;
-                }
-            }
-            ctx.status(401).result("Login failed");
-        }
-        else {
-            ctx.status(401).result("Login failed");
-        }
-
-       
-
-
-
-
-    
+        ctx.status(200).result("Successful login"); 
 
     };
 // The creation of the message will be successful if and only if the message_text is not blank, is not over 255 characters, and posted_by refers to a real, existing user.
@@ -134,21 +101,19 @@ public class SocialMediaController {
     };
 
     public Handler getAllMessages = ctx -> {
-        String request = ctx.body();
         
         ctx.status(200).result("Message received");
-        for (Message m : messages)
-        {
-            ctx.json(m);
-        }
+        MessageDAO messageDAO = MessageDAO.instance();
 
+        Iterable<Message> allMessages = messageDAO.getAllMessages();
+        ctx.json(allMessages);
         
 
     };
 
     public Handler getMessageById = ctx -> {
 
-        String request = ctx.body();
+        /*String request = ctx.body();
         Message parsedRequest = parseMessageFromJson(request);
         ctx.status(200).result("Message received");
         for (Message m : messages)
@@ -159,6 +124,20 @@ public class SocialMediaController {
                 ctx.json(m);
             }
 
+        }*/
+
+        int id = Integer.parseInt(Objects.requireNonNull(ctx.pathParam("id")));
+        MessageDAO dao = MessageDAO.instance();
+        Optional<Message> message = dao.getMessageById(id);
+
+        if (message.isPresent())
+        {
+            ctx.json(message.get());
+            ctx.status(200).result("Message received");
+        }
+        else {
+            ctx.status(200).result("Message not found");
+            ctx.html("Not found");
         }
 
 
@@ -258,6 +237,9 @@ public class SocialMediaController {
      */
     public Javalin startAPI() {
         Javalin app = Javalin.create();
+        app.before("/path/*",ctx -> {
+
+        });
         app.post("localhost:8080/register", new SocialMediaController().registerUser);
         app.post("localhost:8080/login", new SocialMediaController().loginUser);
         app.post("localhost:8080/messages", new SocialMediaController().createMessage);
