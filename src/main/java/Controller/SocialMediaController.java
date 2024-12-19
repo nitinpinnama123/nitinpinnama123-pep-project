@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Random;
+import java.util.stream.Stream;
 import java.io.*;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -102,11 +103,12 @@ public class SocialMediaController {
 
     public Handler getAllMessages = ctx -> {
         
-        ctx.status(200).result("Message received");
+        ctx.status(200).result("All Messages received");
         MessageDAO messageDAO = MessageDAO.instance();
 
         Iterable<Message> allMessages = messageDAO.getAllMessages();
         ctx.json(allMessages);
+
         
 
     };
@@ -126,13 +128,13 @@ public class SocialMediaController {
 
         }*/
 
-        int id = Integer.parseInt(Objects.requireNonNull(ctx.pathParam("id")));
+        int id = Integer.parseInt(Objects.requireNonNull(ctx.pathParam("message_id")));
         MessageDAO dao = MessageDAO.instance();
-        Optional<Message> message = dao.getMessageById(id);
+        Stream<Message> message = dao.getMessageById(id);
 
-        if (message.isPresent())
+        if (message.toArray().length > 0)
         {
-            ctx.json(message.get());
+            ctx.json(message);
             ctx.status(200).result("Message received");
         }
         else {
@@ -144,7 +146,7 @@ public class SocialMediaController {
     };
 
     public Handler deleteMessageById = ctx -> {
-        String request = ctx.body();
+        /*String request = ctx.body();
         Message parsedRequest = parseMessageFromJson(request);
         ctx.status(200).result("Message deleted");
         for (Message m : messages)
@@ -157,12 +159,18 @@ public class SocialMediaController {
             else {
                 // Response body is empty
             }
-        }
+        }*/
+
+        int id = Integer.parseInt(Objects.requireNonNull(ctx.pathParam("message_id")));
+        MessageDAO dao = MessageDAO.instance();
+        dao.deleteMessageById(id);
+
+        ctx.status(200).result("Message deleted");
 
     };
 
     public Handler updateMessageTextById = ctx -> {
-        String request = ctx.body();
+        /*String request = ctx.body();
         Message parsedRequest = parseMessageFromJson(request);
 
         for (Message m : messages)
@@ -182,49 +190,44 @@ public class SocialMediaController {
                 }
             }
 
+        }*/
+
+        int id = Integer.parseInt(Objects.requireNonNull(ctx.pathParam("message_id")));
+        String str = Objects.requireNonNull(ctx.pathParam("str"));
+        MessageDAO dao = MessageDAO.instance();
+        Stream<Message> m = dao.getMessageById(id);
+        Message x = (Message) m;
+        String originalText = x.getMessage_text();
+        int originalId = id;
+        dao.updateMessageTextById(x.getMessage_id(), str);
+        String updatedText = x.getMessage_text();
+        int updatedId = x.getMessage_id();
+
+        if (updatedId == originalId && updatedText.length() > 0 
+        && updatedText.length() <= 255)
+        {
+            ctx.json(x);
+            ctx.status(200).result("Message text successfully updated");
         }
-
-
-
-
+        else {
+            ctx.status(400).result("Message text could not be updated");
+        }
     };
 
     public Handler getAllMessagesByUser = ctx -> {
-        List<Message> messagesByUser = new ArrayList<Message>();
-        String request = ctx.body();
-        Account parsedRequestAccount = parseAccountFromJson(request);
-        ctx.status(200).result("Messages by user received");
-        for (Message m : messages)
-        {
-            m = parseMessageFromJson(request);
-            if (m.getPosted_by() == parsedRequestAccount.getAccount_id())
-            {
-                messagesByUser.add(m);
-            }
-        }
+        
+
+        int userID = Integer.parseInt(Objects.requireNonNull(ctx.pathParam("posted_by")));
+        MessageDAO dao = MessageDAO.instance();
+        List<Message> messagesByUser = dao.getAllMessagesByUser(userID);
+        
         ctx.json(messagesByUser);
+        ctx.status(200).result("All messages by user received");
 
 
 
     };
 
-    private Account parseAccountFromJson(String json) throws JsonMappingException, JsonProcessingException {
-        // Parse the JSON and return an Account object
-        // You can use a library like Gson or Jackson for JSON parsing
-        ObjectMapper mapper = new ObjectMapper();
-        JsonNode node = mapper.readTree(json);
-        Account a = new Account(node.get("account_id").asInt(), node.get("username").asText(), node.get("password").asText());
-        return a;
-    }
-
-    private Message parseMessageFromJson (String json) throws JsonMappingException, JsonProcessingException 
-    {
-        ObjectMapper mapper = new ObjectMapper();
-        JsonNode node = mapper.readTree(json);
-
-        Message m = new Message(node.get("posted_by").asInt(), node.get("message_text").asText(), node.get("time_posted_epoch").asLong());
-        return m;
-    }
 
     
 

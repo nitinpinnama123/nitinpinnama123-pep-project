@@ -6,6 +6,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
 import Model.Message;
 
 public class MessageDAO {
@@ -26,11 +28,10 @@ public class MessageDAO {
         messages.add(m);
     }
 
-    public Optional<Message> getMessageById(int id)
+    public Stream<Message> getMessageById(int id)
     {
         return messages.stream()
-        .filter(m -> m.message_id == id)
-        .findAny();
+        .filter(m -> m.message_id == id);
     }
     
     public Iterable<Message> getAllMessages()
@@ -46,8 +47,20 @@ public class MessageDAO {
         .collect(Collectors.toList());
     }
     
-    public Iterable<Message> updateMessageById(int id, String str)
+    public void updateMessageTextById(int id, String str)
     {
-        messages.stream().filter(m -> m.message_id == id).findAny().setMessage_text(str);
+        Stream<Message> m = messages.stream()
+                    .filter(a -> a.message_id == id);
+        Message x = (Message) m;
+        x.setMessage_text(str);
+        
+        
+    }
+
+    public List<Message> getAllMessagesByUser(int userID)
+    {
+        return messages.stream()
+        .filter(m -> m.posted_by == userID)
+        .collect(Collectors.toList());
     }
 }
