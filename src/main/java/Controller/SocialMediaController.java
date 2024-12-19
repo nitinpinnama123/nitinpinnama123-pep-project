@@ -52,8 +52,7 @@ public class SocialMediaController {
         
         if (acc.username != null && acc.password.length() >= 4)
         {
-            ctx.json(acc.username);
-            ctx.json(acc.password);
+            ctx.json(acc);
             ctx.status(200).result("Username and password valid");
         }
         else {
@@ -70,30 +69,12 @@ public class SocialMediaController {
     };
 // The creation of the message will be successful if and only if the message_text is not blank, is not over 255 characters, and posted_by refers to a real, existing user.
     public Handler createMessage = ctx -> {
-        String request = ctx.body();
-        Message newMessage = parseMessageFromJson(request);
-        Account account = parseAccountFromJson(request);
-        if (newMessage.getMessage_text() == null)
-        {
-            ctx.status(400).result("Message text cannot be blank");
-            return;
-        }
-        if (newMessage.getMessage_text().length() > 255)
-        {
-            ctx.status(400).result("Message text cannot be over 255 characters");
-            return;
-        }
-
-        if (newMessage.getPosted_by() != account.getAccount_id())
-        {
-            ctx.status(400).result("Not a real user");
-            return;
-        }
-
-        ctx.status(200).result("Message successful");
-        ctx.json(newMessage);
-
-        messages.add(newMessage);
+        MessageDAO messageDAO = MessageDAO.instance();
+        int message_id = Integer.parseInt(Objects.requireNonNull(ctx.pathParam("message_id")));
+        int posted_by = Integer.parseInt(Objects.requireNonNull(ctx.pathParam("posted_by")));
+        String message_text = Objects.requireNonNull(ctx.pathParam("message_text"));
+        long time_posted_epoch = Long.parseLong(Objects.requireNonNull(ctx.pathParam("time_posted_epoch")));
+        messageDAO.createMessage(message_id, posted_by, message_text, time_posted_epoch);
     
     
 
@@ -115,18 +96,7 @@ public class SocialMediaController {
 
     public Handler getMessageById = ctx -> {
 
-        /*String request = ctx.body();
-        Message parsedRequest = parseMessageFromJson(request);
-        ctx.status(200).result("Message received");
-        for (Message m : messages)
-        {
-            m = parseMessageFromJson(request);
-            if (m.getMessage_id() == parsedRequest.getMessage_id())
-            {
-                ctx.json(m);
-            }
-
-        }*/
+    
 
         int id = Integer.parseInt(Objects.requireNonNull(ctx.pathParam("message_id")));
         MessageDAO dao = MessageDAO.instance();
@@ -146,51 +116,14 @@ public class SocialMediaController {
     };
 
     public Handler deleteMessageById = ctx -> {
-        /*String request = ctx.body();
-        Message parsedRequest = parseMessageFromJson(request);
-        ctx.status(200).result("Message deleted");
-        for (Message m : messages)
-        {
-            m = parseMessageFromJson(request);
-            if (m.message_id == parsedRequest.message_id)
-            {
-                ctx.json(m);
-            }
-            else {
-                // Response body is empty
-            }
-        }*/
-
         int id = Integer.parseInt(Objects.requireNonNull(ctx.pathParam("message_id")));
         MessageDAO dao = MessageDAO.instance();
         dao.deleteMessageById(id);
 
         ctx.status(200).result("Message deleted");
-
     };
 
     public Handler updateMessageTextById = ctx -> {
-        /*String request = ctx.body();
-        Message parsedRequest = parseMessageFromJson(request);
-
-        for (Message m : messages)
-        {
-            m = parseMessageFromJson(request);
-            if (m.getMessage_id() == parsedRequest.getMessage_id())
-            {
-                if (parsedRequest.getMessage_text() == null || parsedRequest.getMessage_text().length() > 255)
-                {
-                    ctx.status(400).result("Message text cannot be blank");
-                    return;
-                }
-                else {
-                    m.setMessage_text(parsedRequest.getMessage_text());
-                    ctx.status(200).result("Message text successfully updated");
-                    ctx.json(m);
-                }
-            }
-
-        }*/
 
         int id = Integer.parseInt(Objects.requireNonNull(ctx.pathParam("message_id")));
         String str = Objects.requireNonNull(ctx.pathParam("str"));
@@ -215,17 +148,12 @@ public class SocialMediaController {
     };
 
     public Handler getAllMessagesByUser = ctx -> {
-        
-
         int userID = Integer.parseInt(Objects.requireNonNull(ctx.pathParam("posted_by")));
         MessageDAO dao = MessageDAO.instance();
         List<Message> messagesByUser = dao.getAllMessagesByUser(userID);
         
         ctx.json(messagesByUser);
         ctx.status(200).result("All messages by user received");
-
-
-
     };
 
 
