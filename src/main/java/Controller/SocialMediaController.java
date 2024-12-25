@@ -1,13 +1,25 @@
 package Controller;
+// import static org.mockito.ArgumentMatchers.nullable;
+
+import static org.mockito.ArgumentMatchers.booleanThat;
 import static org.mockito.ArgumentMatchers.nullable;
 
+import java.sql.Connection;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
+//import java.util.Optional;
 import java.util.Random;
 import java.util.stream.Stream;
-import java.io.*;
+//import java.beans.Statement;
+//import java.io.*;
+//import java.sql.Connection;
+//import java.sql.DriverManager;
+//import java.sql.SQLException;
+
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonMappingException;
@@ -17,12 +29,14 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import DAO.AccountDAO;
 import DAO.MessageDAO;
 
+import org.h2.engine.Database;
 import org.h2.util.json.JSONArray;
 
 import org.h2.util.json.JSONObject;
 
 import Model.Account;
 import Model.Message;
+import Util.ConnectionUtil;
 import io.javalin.Javalin;
 import io.javalin.http.Context;
 import io.javalin.http.Handler;
@@ -39,121 +53,224 @@ public class SocialMediaController {
 
     private List<Message> messages = new ArrayList<>();
 
+    
     public SocialMediaController() {
 
 
     }
+
+   
     Random rand = new Random();
-    public Handler registerUser = ctx -> {
-        String username = Objects.requireNonNull(ctx.pathParam("username"));
-        String password = Objects.requireNonNull(ctx.pathParam("password"));
-        AccountDAO accountDAO = AccountDAO.instance();
-        Account acc = accountDAO.registerUser(username, password);
+
+    public static Handler registerUser = ctx -> {
         
-        if (acc.username != null && acc.password.length() >= 4)
-        {
-            ctx.json(acc);
-            ctx.status(200).result("Username and password valid");
+        Account accCreated = null;
+        
+        Account acc = ctx.bodyAsClass(Account.class);
+        System.out.println("Account user = " + acc.getUsername() + " password = " + acc.getPassword());
+
+        AccountDAO accountDAO = AccountDAO.instance();
+        if (acc.getUsername() == null || acc.getUsername().length() == 0) {
+            ctx.status(400);
+        } else if (acc.getPassword() != null && acc.getPassword().length() < 4) {
+            ctx.status(400);
+        } else if (accountDAO.getAccountByUsername(acc.getUsername()) == null) {
+            accCreated = accountDAO.registerUser(acc.getUsername(), acc.getPassword());
+            System.out.println("Inserted given accout" + accCreated);
+
+            ctx.status(200).json(accCreated);
         }
         else {
-            ctx.status(400).result("Username or password invalid");
+            ctx.status(400);
         }
     };
 
-    public Handler loginUser = ctx -> {
+    public static Handler getAccountById = ctx -> {
+ 
+        System.out.println("Context = " + ctx.body());
+
+
+        AccountDAO dao = AccountDAO.instance();
+
+        Account accountToGet = dao.getAccountById(0);
+        System.out.println(accountToGet);
+    };
+
+    public static Handler loginUser = ctx -> {
+        Account acc = ctx.bodyAsClass(Account.class);
+        Account accFetched = null;
         AccountDAO accountDAO = AccountDAO.instance();
-        accountDAO.loginUser(accountDAO);
-
-        ctx.status(200).result("Successful login"); 
+        if (acc.getUsername() == null || acc.getUsername().length() == 0 
+              || acc.getPassword() == null || acc.getPassword().length() == 0)
+        {
+            ctx.status(401);
+        }
+        else
+        {
+            accFetched = accountDAO.getAccountByUsername(acc.getUsername());
+            if (accFetched != null)
+            {
+                if (acc.getPassword().equals(accFetched.getPassword()))
+                {
+                    ctx.status(200).json(accFetched);
+                }
+                else {
+                    // Passwords don't match, return 401
+                    ctx.status(401);
+                }
+            }
+            else {
+                // Account does not exist with username provided, return 401
+                ctx.status(401);
+            }
+        }
 
     };
+
+
 // The creation of the message will be successful if and only if the message_text is not blank, is not over 255 characters, and posted_by refers to a real, existing user.
-    public Handler createMessage = ctx -> {
+    public static Handler createMessage = ctx -> {
+
+        System.out.println("Context = " + ctx.body());
+        
+        Message m = ctx.bodyAsClass(Message.class);
+        System.out.println("Message id = " + m.getMessage_id() + " posted_by = " + m.getPosted_by());
+
         MessageDAO messageDAO = MessageDAO.instance();
-        int message_id = Integer.parseInt(Objects.requireNonNull(ctx.pathParam("message_id")));
-        int posted_by = Integer.parseInt(Objects.requireNonNull(ctx.pathParam("posted_by")));
-        String message_text = Objects.requireNonNull(ctx.pathParam("message_text"));
-        long time_posted_epoch = Long.parseLong(Objects.requireNonNull(ctx.pathParam("time_posted_epoch")));
-        messageDAO.createMessage(message_id, posted_by, message_text, time_posted_epoch);
-    
-    
-
-
+        AccountDAO accountDAO = AccountDAO.instance();
+        System.out.println("Calling Message DAO to create message");
+        if (m.getMessage_text() == null || m.getMessage_text().length() == 0 || 
+            m.getMessage_text().length() > 255) {
+            ctx.status(400);
+        }
+        else if (accountDAO.getAccountById(m.getPosted_by()) == null)
+        {
+            // User with given id does not exist, return 400
+            ctx.status(400);
+        } else {
+            Message mAdded = messageDAO.createMessage(m.getPosted_by(), m.getMessage_text(), m.getTime_posted_epoch());
+            System.out.println("Created given message");
+            System.out.println("Message = " + mAdded);
+            ctx.status(200).json(mAdded);
+        }
 
     };
 
-    public Handler getAllMessages = ctx -> {
+    public static Handler getAllMessages = ctx -> {
         
-        ctx.status(200).result("All Messages received");
+        /*ctx.status(200).result("All Messages received");
         MessageDAO messageDAO = MessageDAO.instance();
 
         Iterable<Message> allMessages = messageDAO.getAllMessages();
-        ctx.json(allMessages);
+        ctx.json(allMessages);*/
 
-        
+        System.out.println("Context = " + ctx.body());
+
+
+        MessageDAO msgDAO = MessageDAO.instance();
+
+        List<Message> messages = msgDAO.getAllMessages();
+        System.out.println(messages);
+
+        ctx.status(200).json(messages);
 
     };
 
-    public Handler getMessageById = ctx -> {
+    public static Handler getMessageById = ctx -> {
 
     
-
         int id = Integer.parseInt(Objects.requireNonNull(ctx.pathParam("message_id")));
-        MessageDAO dao = MessageDAO.instance();
-        Stream<Message> message = dao.getMessageById(id);
 
-        if (message.toArray().length > 0)
+        MessageDAO msgDAO = MessageDAO.instance();
+
+        Message messageToGet = msgDAO.getMessageById(id);
+
+        if (messageToGet != null)
         {
-            ctx.json(message);
-            ctx.status(200).result("Message received");
+            ctx.status(200).json(messageToGet);
         }
         else {
-            ctx.status(200).result("Message not found");
-            ctx.html("Not found");
+            ctx.status(200);
+            //.result("Message not found");
+            //ctx.html("Not found");
         }
 
 
     };
 
-    public Handler deleteMessageById = ctx -> {
-        int id = Integer.parseInt(Objects.requireNonNull(ctx.pathParam("message_id")));
+    public static Handler deleteMessageById = ctx -> {
+        /*int id = Integer.parseInt(Objects.requireNonNull(ctx.pathParam("message_id")));
         MessageDAO dao = MessageDAO.instance();
         dao.deleteMessageById(id);
 
-        ctx.status(200).result("Message deleted");
-    };
+        ctx.status(200).result("Message deleted");*/
 
-    public Handler updateMessageTextById = ctx -> {
+        Message mDeleted = null;
 
         int id = Integer.parseInt(Objects.requireNonNull(ctx.pathParam("message_id")));
-        String str = Objects.requireNonNull(ctx.pathParam("str"));
-        MessageDAO dao = MessageDAO.instance();
-        Stream<Message> m = dao.getMessageById(id);
-        Message x = (Message) m;
-        String originalText = x.getMessage_text();
-        int originalId = id;
-        dao.updateMessageTextById(x.getMessage_id(), str);
-        String updatedText = x.getMessage_text();
-        int updatedId = x.getMessage_id();
 
-        if (updatedId == originalId && updatedText.length() > 0 
-        && updatedText.length() <= 255)
+        MessageDAO msgDAO = MessageDAO.instance();
+
+        System.out.println("Deleting message with id = " + id);
+
+        mDeleted = msgDAO.deleteMessageById(id);
+
+        if (mDeleted == null)
         {
-            ctx.json(x);
-            ctx.status(200).result("Message text successfully updated");
+            ctx.status(200);
         }
         else {
-            ctx.status(400).result("Message text could not be updated");
+            System.out.println("Deleted message with id = " + mDeleted);
+            ctx.status(200).json(mDeleted);
         }
+
+ 
     };
 
-    public Handler getAllMessagesByUser = ctx -> {
-        int userID = Integer.parseInt(Objects.requireNonNull(ctx.pathParam("posted_by")));
+    public static Handler updateMessageTextById = ctx -> {
+        int id = Integer.parseInt(Objects.requireNonNull(ctx.pathParam("message_id")));
+
+        Message m = ctx.bodyAsClass(Message.class);
+
+        MessageDAO messageDAO = MessageDAO.instance();
+
+        if(messageDAO.getMessageById(id) != null)
+        {
+            if (m.getMessage_text() == null || m.getMessage_text().length() == 0 || 
+                m.getMessage_text().length() > 255)
+            {
+                // Message text is empty or > 255 characters, return 400
+                ctx.status(400);
+            }
+            else {
+                Message mReturn = messageDAO.updateMessageTextById(id, m.getMessage_text());
+                ctx.status(200).json(mReturn);
+            }
+
+        } else {
+            // Message with given id does not exist, return 400
+            ctx.status(400);
+        }
+
+
+    };
+
+    public static Handler getAllMessagesByUser = ctx -> {
+        int userID = Integer.parseInt(Objects.requireNonNull(ctx.pathParam("account_id")));
+
+
+
+        /*int userID = Integer.parseInt(Objects.requireNonNull(ctx.pathParam("posted_by")));
         MessageDAO dao = MessageDAO.instance();
         List<Message> messagesByUser = dao.getAllMessagesByUser(userID);
         
         ctx.json(messagesByUser);
-        ctx.status(200).result("All messages by user received");
+        ctx.status(200).result("All messages by user received");*/
+
+        MessageDAO msgDAO = MessageDAO.instance();
+
+        List<Message> messages = msgDAO.getAllMessagesByUser(userID);
+        ctx.status(200).json(messages);
     };
 
 
@@ -167,18 +284,23 @@ public class SocialMediaController {
      * @return a Javalin app object which defines the behavior of the Javalin controller.
      */
     public Javalin startAPI() {
-        Javalin app = Javalin.create();
-        app.before("/path/*",ctx -> {
+        Javalin app = Javalin.create()
+   
+    ;
 
-        });
-        app.post("localhost:8080/register", new SocialMediaController().registerUser);
-        app.post("localhost:8080/login", new SocialMediaController().loginUser);
-        app.post("localhost:8080/messages", new SocialMediaController().createMessage);
-        app.get("localhost:8080/messages", new SocialMediaController().getAllMessages);
-        app.get("localhost:8080/messages/{message_id}", new SocialMediaController().getMessageById);
-        app.delete("localhost:8080/messages/{message_id}", new SocialMediaController().deleteMessageById);
-        app.patch("localhost:8080/messages/{message_id}", new SocialMediaController().updateMessageTextById);
-        app.get("localhost:8080/accounts/{account_id}", new SocialMediaController().getAllMessagesByUser);
+        /*(app.before("/path/*",ctx -> {
+
+        });*/
+        //ConnectionUtil.resetTestDatabase();
+        app.post("/register", SocialMediaController.registerUser);
+        //app.get("localhost:8080/accounts/{account_id}", new SocialMediaController().getAccountById);
+        app.post("/login", SocialMediaController.loginUser);
+        app.post("/messages", SocialMediaController.createMessage);
+        app.get("/messages",  SocialMediaController.getAllMessages);
+        app.get("/messages/{message_id}", SocialMediaController.getMessageById);
+        app.delete("/messages/{message_id}", SocialMediaController.deleteMessageById);
+        app.patch("/messages/{message_id}", SocialMediaController.updateMessageTextById);
+        app.get("/accounts/{account_id}/messages", SocialMediaController.getAllMessagesByUser);
         return app;
     }
 
